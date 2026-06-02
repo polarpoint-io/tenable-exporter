@@ -3,7 +3,6 @@ name: CI
 on:
   push:
     branches: [main]
-    tags: ["v*.*.*"]
   pull_request:
     branches: [main]
 
@@ -39,8 +38,10 @@ jobs:
       - name: Test (pytest)
         run: pytest -q
 
-  docker:
-    name: Build and push Docker image
+  docker-snapshot:
+    # Snapshot builds: pushes `latest` + `sha-xxx` on every merge to main.
+    # PRs get a build-only dry-run (no push) so Dockerfiles are validated early.
+    name: Docker snapshot
     runs-on: ubuntu-latest
     needs: test
     permissions:
@@ -66,14 +67,10 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
             type=sha,prefix=sha-,format=short
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push
+      - name: Build and push snapshot image
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -85,14 +82,19 @@ jobs:
           cache-to: type=gha,mode=max
 
   release:
-    name: Semantic Release to PyPI
+    # Semantic-release: analyses conventional commits, bumps the version,
+    # publishes to PyPI, pushes versioned Docker tags (1.2.3 / 1.2 / 1),
+    # updates CHANGELOG.md, and creates a GitHub Release.
+    # Only runs on pushes to main — never on PRs.
+    name: Semantic release (PyPI + Docker)
     runs-on: ubuntu-latest
-    needs: [test, docker]
+    needs: [test, docker-snapshot]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
       issues: write
       pull-requests: write
+      packages: write
       id-token: write
     steps:
       - uses: actions/checkout@v4
@@ -101,19 +103,37 @@ jobs:
           persist-credentials: false
           token: ${{ secrets.POL_GH_TOKEN }}
 
-      - uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Install Python build tools
         run: python -m pip install --upgrade pip build twine
 
-      - name: Semantic Release to PyPI
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Semantic release
         uses: cycjimmy/semantic-release-action@v4
         with:
-          extra_plugins: "semantic-release-pypi @semantic-release/exec @semantic-release/changelog @semantic-release/git"
+          extra_plugins: |
+            semantic-release-pypi
+            @semantic-release/exec
+            @semantic-release/changelog
+            @semantic-release/git
+            @codedependant/semantic-release-docker
         env:
           GH_TOKEN: ${{ secrets.POL_GH_TOKEN }}
           PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
           PYPI_USERNAME: "__token__"
           PYPI_REPO_URL: "https://upload.pypi.org/legacy/"
+          DOCKER_REGISTRY_USER: ${{ github.actor }}
+          DOCKER_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}

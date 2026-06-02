@@ -11,6 +11,22 @@
     ],
     "semantic-release-pypi",
     [
+      "@codedependant/semantic-release-docker",
+      {
+        "dockerImage": "tenable-exporter",
+        "dockerRegistry": "ghcr.io",
+        "dockerProject": "polarpoint-io",
+        "dockerFile": "Dockerfile",
+        "dockerPlatform": ["linux/amd64", "linux/arm64"],
+        "dockerTags": [
+          "{{major}}.{{minor}}.{{patch}}",
+          "{{major}}.{{minor}}",
+          "{{major}}",
+          "latest"
+        ]
+      }
+    ],
+    [
       "@semantic-release/github",
       {
         "assets": [
