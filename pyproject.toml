@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "tenable-exporter"
+version = "0.1.0"
+description = "Prometheus exporter for Tenable.io metrics"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pytenable>=1.6.0",
+    "prometheus-client>=0.20.0",
+]
+
+[project.scripts]
+tenable-exporter = "exporter:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["exporter*"]

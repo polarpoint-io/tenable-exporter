@@ -1,0 +1,11 @@
+services:
+  tenable-exporter:
+    build: .
+    ports:
+      - "9190:9190"
+    environment:
+      TENABLE_ACCESS_KEY: ${TENABLE_ACCESS_KEY}
+      TENABLE_SECRET_KEY: ${TENABLE_SECRET_KEY}
+      EXPORTER_PORT: "9190"
+      SCRAPE_INTERVAL: "300"
+    restart: unless-stopped
