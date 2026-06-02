@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=68", "wheel"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "tenable-exporter"
@@ -8,9 +8,29 @@ version = "0.1.0"
 description = "Prometheus exporter for Tenable.io metrics"
 readme = "README.md"
 requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "Surj Bains" }]
+keywords = ["prometheus", "tenable", "exporter", "security", "metrics", "devsecops"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: System :: Monitoring",
+]
 dependencies = [
     "pytenable>=1.6.0",
     "prometheus-client>=0.20.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-mock>=3.0",
+    "ruff>=0.4",
 ]
 
 [project.scripts]
@@ -19,3 +39,7 @@ tenable-exporter = "exporter:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["exporter*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
