@@ -40,6 +40,9 @@ tenable-exporter = "exporter:main"
 where = ["."]
 include = ["exporter*"]
 
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"
