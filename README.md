@@ -8,12 +8,13 @@
 [![Python](https://img.shields.io/pypi/pyversions/tenable-exporter?logo=python&logoColor=white)](https://pypi.org/project/tenable-exporter/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![GHCR](https://img.shields.io/badge/ghcr.io-tenable--exporter-blue?logo=github)](https://github.com/polarpoint-io/tenable-exporter/pkgs/container/tenable-exporter)
+[![Helm](https://img.shields.io/badge/Helm-ghcr.io%2Fpolarpoint--io%2Fcharts-blue?logo=helm)](https://github.com/polarpoint-io/tenable-exporter/pkgs/container/charts%2Ftenable-exporter)
 
 A Prometheus exporter for [Tenable.io](https://www.tenable.com/) built with [pyTenable](https://github.com/tenable/pyTenable).
 
-Exports vulnerability, asset, and scan metrics so you can alert on them in Grafana or any Prometheus-compatible stack.
+Exports vulnerability, asset, and compliance metrics so you can alert on them in Grafana or any Prometheus-compatible stack.
 
-> **PyPI**: `pip install tenable-exporter` &nbsp;·&nbsp; **Image**: `ghcr.io/polarpoint-io/tenable-exporter:latest` &nbsp;·&nbsp; **Repo**: <https://github.com/polarpoint-io/tenable-exporter>
+> **PyPI**: `pip install tenable-exporter` &nbsp;·&nbsp; **Image**: `ghcr.io/polarpoint-io/tenable-exporter:latest` &nbsp;·&nbsp; **Chart**: `ghcr.io/polarpoint-io/charts/tenable-exporter` &nbsp;·&nbsp; **Repo**: <https://github.com/polarpoint-io/tenable-exporter>
 
 ## Metrics
 
@@ -112,6 +113,46 @@ cp .env.example .env
 # Fill in your Tenable credentials in .env
 docker compose up -d
 ```
+
+### Helm
+
+```bash
+helm registry login ghcr.io --username <github-user> --password <github-pat>
+
+helm install tenable-exporter oci://ghcr.io/polarpoint-io/charts/tenable-exporter \
+  --namespace monitoring --create-namespace \
+  --set tenable.accessKey=<TENABLE_ACCESS_KEY> \
+  --set tenable.secretKey=<TENABLE_SECRET_KEY>
+```
+
+Or reference an existing Kubernetes Secret:
+
+```bash
+kubectl create secret generic tenable-credentials \
+  --from-literal=access-key=<TENABLE_ACCESS_KEY> \
+  --from-literal=secret-key=<TENABLE_SECRET_KEY> \
+  -n monitoring
+
+helm install tenable-exporter oci://ghcr.io/polarpoint-io/charts/tenable-exporter \
+  --namespace monitoring \
+  --set tenable.existingSecret=tenable-credentials
+```
+
+Key chart values:
+
+| Value | Default | Description |
+|---|---|---|
+| `tenable.accessKey` | `""` | Tenable.io access key |
+| `tenable.secretKey` | `""` | Tenable.io secret key |
+| `tenable.existingSecret` | `""` | Name of an existing Secret with `access-key` and `secret-key` |
+| `tenable.scrapeInterval` | `300` | Seconds between Tenable API scrapes |
+| `tenable.filterProviders` | `""` | Comma-separated providers to include (`aws,azure,gcp`) |
+| `tenable.filterSubscriptions` | `""` | Comma-separated subscription / account / project IDs |
+| `image.tag` | chart `appVersion` | Override the image tag |
+| `resources.requests.memory` | `64Mi` | Memory request |
+| `service.type` | `ClusterIP` | Kubernetes service type |
+
+Full values reference: [`charts/tenable-exporter/values.yaml`](charts/tenable-exporter/values.yaml)
 
 ## Configuration
 

@@ -32,8 +32,7 @@
       "semantic-release-helm3",
       {
         "chartPath": "charts/tenable-exporter",
-        "registry": "ghcr.io",
-        "folder": "polarpoint-io/charts",
+        "registry": "ghcr.io/polarpoint-io/charts",
         "skipRegistryLogin": true
       }
     ],
