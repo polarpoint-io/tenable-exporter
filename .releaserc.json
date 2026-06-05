@@ -29,6 +29,14 @@
       }
     ],
     [
+      "semantic-release-helm3",
+      {
+        "chartPath": "charts/tenable-exporter",
+        "registry": "ghcr.io/polarpoint-io/charts",
+        "skipRegistryLogin": false
+      }
+    ],
+    [
       "@semantic-release/github",
       {
         "assets": [
@@ -40,7 +48,7 @@
     [
       "@semantic-release/git",
       {
-        "assets": ["pyproject.toml", "CHANGELOG.md"],
+        "assets": ["pyproject.toml", "CHANGELOG.md", "charts/tenable-exporter/Chart.yaml"],
         "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
       }
     ]

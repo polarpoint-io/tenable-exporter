@@ -1,0 +1,19 @@
+apiVersion: v2
+name: tenable-exporter
+description: Prometheus exporter for Tenable.io vulnerability, asset, and compliance metrics
+type: application
+version: 0.1.0
+appVersion: "latest"
+keywords:
+  - tenable
+  - prometheus
+  - exporter
+  - security
+  - vulnerabilities
+  - compliance
+home: https://github.com/polarpoint-io/tenable-exporter
+sources:
+  - https://github.com/polarpoint-io/tenable-exporter
+maintainers:
+  - name: polarpoint-io
+    url: https://github.com/polarpoint-io

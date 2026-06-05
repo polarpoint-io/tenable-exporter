@@ -1,0 +1,37 @@
+Thank you for installing {{ .Chart.Name }} v{{ .Chart.Version }}.
+
+The Tenable Exporter is now scraping Tenable.io and exposing Prometheus
+metrics on port 9190.
+
+1. Check the exporter is ready:
+
+   kubectl get pods -n {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "tenable-exporter.name" . }}"
+
+2. Verify the first scrape has completed:
+
+   kubectl logs -n {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "tenable-exporter.name" . }}" --tail=20
+
+3. Access the metrics endpoint locally:
+
+   kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "tenable-exporter.fullname" . }} 9190:9190
+
+   Then open: http://localhost:9190/metrics
+
+Key metrics exposed:
+
+  tenable_vulnerabilities_by_subscription_total{provider, subscription_id, severity}
+  tenable_vulnerabilities_by_region_total{provider, subscription_id, region, severity}
+  tenable_vulnerabilities_by_exploit_risk_total{cve_category, severity}
+  tenable_vulnerabilities_by_vpr_band_total{provider, subscription_id, vpr_band}
+  tenable_vulnerabilities_by_state_total{provider, subscription_id, state, severity}
+  tenable_assets_by_subscription_total{provider, subscription_id}
+  tenable_assets_by_tag_total{tag_category, tag_value}
+  tenable_compliance_findings_total{provider, subscription_id, audit_name, result}
+
+Scrape interval: {{ .Values.tenable.scrapeInterval }}s
+{{- if .Values.tenable.filterProviders }}
+Filtered providers: {{ .Values.tenable.filterProviders }}
+{{- end }}
+{{- if .Values.tenable.filterSubscriptions }}
+Filtered subscriptions: {{ .Values.tenable.filterSubscriptions }}
+{{- end }}
