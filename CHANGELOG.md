@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/polarpoint-io/tenable-exporter/compare/v1.1.0...v1.1.1) (2026-06-05)
+
+
+### Bug Fixes
+
+* semantic-release-helm3 registry/folder split for GHCR OCI push ([e4da63e](https://github.com/polarpoint-io/tenable-exporter/commit/e4da63e312240a36498dfeb24dded08159e7ad89))
+
 # [1.1.0](https://github.com/polarpoint-io/tenable-exporter/compare/v1.0.0...v1.1.0) (2026-06-05)
 
 
