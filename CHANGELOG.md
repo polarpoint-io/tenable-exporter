@@ -1,3 +1,10 @@
+## [1.1.2](https://github.com/polarpoint-io/tenable-exporter/compare/v1.1.1...v1.1.2) (2026-06-05)
+
+
+### Bug Fixes
+
+* REGISTRY_HOST env was overriding registry path in semantic-release-helm3 ([8e98125](https://github.com/polarpoint-io/tenable-exporter/commit/8e98125d39f135c15d75c802c082f8ef188668a7))
+
 ## [1.1.1](https://github.com/polarpoint-io/tenable-exporter/compare/v1.1.0...v1.1.1) (2026-06-05)
 
 
