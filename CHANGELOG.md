@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/polarpoint-io/tenable-exporter/compare/v1.0.0...v1.1.0) (2026-06-05)
+
+
+### Features
+
+* add Helm chart and semantic-release-helm3 pipeline ([07a39fa](https://github.com/polarpoint-io/tenable-exporter/commit/07a39fa0c3b344e4ed3f050e688283a1c81879ab))
+
 # 1.0.0 (2026-06-02)
 
 
