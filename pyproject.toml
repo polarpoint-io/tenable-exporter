@@ -36,9 +36,8 @@ dev = [
 [project.scripts]
 tenable-exporter = "exporter:main"
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["exporter*"]
+[tool.setuptools]
+py-modules = ["exporter"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
