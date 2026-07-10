@@ -27,6 +27,9 @@ Key metrics exposed:
   tenable_assets_by_subscription_total{provider, subscription_id}
   tenable_assets_by_tag_total{tag_category, tag_value}
   tenable_compliance_findings_total{provider, subscription_id, audit_name, result}
+  tenable_exporter_cloud_context_total{entity, provider, dimension, status}
+  tenable_exporter_vulnerability_asset_lookup_misses_total
+  tenable_exporter_vulnerability_vpr_unknown_total
 
 Scrape interval: {{ .Values.tenable.scrapeInterval }}s
 {{- if .Values.tenable.filterProviders }}

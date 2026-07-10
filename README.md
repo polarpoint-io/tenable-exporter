@@ -60,6 +60,14 @@ Exports vulnerability, asset, and compliance metrics so you can alert on them in
 | `tenable_scans_by_status_total` | `status` | Scans by status (running, completed, aborted, …) |
 | `tenable_plugin_set_updated_timestamp` | — | Unix timestamp of the last plugin set update |
 
+### Exporter diagnostics
+
+| Metric | Labels | Description |
+|---|---|---|
+| `tenable_exporter_cloud_context_total` | `entity`, `provider`, `dimension`, `status` | Count of assets or vulnerabilities with known vs unknown `subscription_id`, `region`, or `resource_group` labels. Use to track Tenable metadata completeness. |
+| `tenable_exporter_vulnerability_asset_lookup_misses_total` | — | Vulnerabilities whose asset UUID was missing from the asset export index |
+| `tenable_exporter_vulnerability_vpr_unknown_total` | — | Vulnerabilities with no VPR score from Tenable (expected for info findings) |
+
 ### Label values by cloud provider
 
 | Label | AWS | Azure | GCP |
@@ -82,6 +90,14 @@ Tenable doesn't have a dedicated field for resource class (database, container r
 **Option 3 — Plugin family:** Database vulnerabilities land in the `Databases` plugin family — visible in `tenable_vulnerabilities_by_plugin_family_total{plugin_family="databases"}`.
 
 **Option 4 — Discovery source filter:** Scope the exporter to specific sources via `TENABLE_FILTER_PROVIDERS`. For ACR-specific scanning, Tenable uses the `AZURE` source; container-specific findings come from the `Containers` plugin family.
+
+## Grafana dashboard
+
+Import [`dashboards/tenable-exporter-overview.json`](dashboards/tenable-exporter-overview.json) for a pre-built overview including:
+
+- Severity stats, subscription/region breakdowns, and VPR band (excluding `unknown` from the pie chart)
+- Chained Provider → Subscription → Region template variables
+- Exporter diagnostics row (`tenable_exporter_cloud_context_total`, asset lookup misses, VPR unknown count)
 
 ## Quick start
 
