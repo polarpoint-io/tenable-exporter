@@ -1,3 +1,13 @@
+## [1.1.4](https://github.com/polarpoint-io/tenable-exporter/compare/v1.1.3...v1.1.4) (2026-08-06)
+
+
+### Bug Fixes
+
+* add workflow_dispatch to build and cancel stale CI queues. ([62172b9](https://github.com/polarpoint-io/tenable-exporter/commit/62172b96ee8026ce324918e26df1fecab832e5ce))
+* correct helm-release workflow file permissions. ([afd4620](https://github.com/polarpoint-io/tenable-exporter/commit/afd46205b18413be02fd7a79c165d24c1cf3d2b7))
+* restore push-triggered semantic-release on main. ([c8185fc](https://github.com/polarpoint-io/tenable-exporter/commit/c8185fc3de15d5996b98a73c5107fcc9d4efbe58))
+* unblock semantic-release and add manual CI dispatch. ([9aad550](https://github.com/polarpoint-io/tenable-exporter/commit/9aad55057e3bf89025d29209c2bfffdc7bbf82da))
+
 ## [1.1.3](https://github.com/polarpoint-io/tenable-exporter/compare/v1.1.2...v1.1.3) (2026-06-09)
 
 
