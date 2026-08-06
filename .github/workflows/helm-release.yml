@@ -1,13 +1,6 @@
 name: semantic-release
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "exporter.py"
-      - "pyproject.toml"
-      - "Dockerfile"
   workflow_dispatch:
 
 permissions:
