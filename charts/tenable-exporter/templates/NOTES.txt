@@ -30,6 +30,8 @@ Key metrics exposed:
   tenable_exporter_cloud_context_total{entity, provider, dimension, status}
   tenable_exporter_vulnerability_asset_lookup_misses_total
   tenable_exporter_vulnerability_vpr_unknown_total
+  tenable_exporter_compliance_findings_collected_total
+  tenable_exporter_compliance_collection_error
 
 Scrape interval: {{ .Values.tenable.scrapeInterval }}s
 {{- if .Values.tenable.filterProviders }}

@@ -11,6 +11,7 @@ from exporter import (
     _normalize_severity,
     _compliance_result,
     _compliance_audit_name,
+    _compliance_asset_uid,
     _parse_plugin_set_value,
     _iter_asset_tags,
     _cloud_context_stats,
@@ -263,6 +264,45 @@ def test_compliance_audit_name_uses_benchmark_fallback():
     assert _compliance_audit_name(finding) == "cis microsoft azure foundations"
 
 
+def test_compliance_asset_uid_prefers_asset_uuid():
+    finding = {
+        "asset_uuid": "asset-1",
+        "asset": {"id": "different-id"},
+    }
+    assert _compliance_asset_uid(finding) == "asset-1"
+
+
+def test_collect_compliance_indexes_by_asset_uuid():
+    finding = {
+        "asset_uuid": "asset-1",
+        "status": "FAILED",
+        "compliance_benchmark_name": "CIS Benchmark",
+        "asset": {"id": "different-id"},
+    }
+    asset_map = {
+        "asset-1": AssetCloud(
+            provider="azure",
+            subscription_id="sub-1",
+            region="eastus",
+            resource_group="my-rg",
+        ),
+    }
+
+    class FakeExports:
+        def compliance(self, **kwargs):
+            assert kwargs.get("when_done") is True
+            return iter([finding])
+
+    class FakeTio:
+        exports = FakeExports()
+
+    c = TenableCollector(FakeTio(), set(), set())
+    c._collect_compliance(asset_map)
+    assert c._compliance_findings_collected == 1
+    assert c._compliance_by_result[("azure", "sub-1", "cis benchmark", "FAILED")] == 1
+    assert c._compliance_by_region[("azure", "sub-1", "eastus", "FAILED")] == 1
+
+
 def test_parse_plugin_set_value_yyyymmddhhmm():
     assert _parse_plugin_set_value("202604101430") > 0
 
@@ -404,3 +444,16 @@ def test_include_both_filters_pass():
 def test_include_both_filters_provider_fail():
     c = _collector(providers={"azure"}, subscriptions={"123"})
     assert c._include(AssetCloud(provider="aws", subscription_id="123")) is False
+
+
+def test_include_compliance_keeps_unknown_provider_when_filtered():
+    c = _collector(providers={"azure"})
+    ctx = AssetCloud(provider=UNKNOWN, subscription_id="sub-1")
+    assert c._include(ctx) is False
+    assert c._include_compliance(ctx) is True
+
+
+def test_include_compliance_filters_known_provider():
+    c = _collector(providers={"azure"})
+    assert c._include_compliance(AssetCloud(provider="aws", subscription_id="sub-1")) is False
+    assert c._include_compliance(AssetCloud(provider="azure", subscription_id="sub-1")) is True

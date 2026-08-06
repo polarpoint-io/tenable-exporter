@@ -59,6 +59,12 @@ tenable:
   # Leave empty to include all subscriptions.
   filterSubscriptions: ""
 
+  # Set false to skip compliance export collection (large API job).
+  complianceEnabled: true
+
+  # Optional compliance export queue timeout in seconds.
+  complianceExportTimeout: ""
+
 service:
   type: ClusterIP
   port: 9190

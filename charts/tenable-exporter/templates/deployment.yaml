@@ -57,6 +57,12 @@ spec:
             - name: TENABLE_FILTER_SUBSCRIPTIONS
               value: {{ .Values.tenable.filterSubscriptions | quote }}
             {{- end }}
+            - name: TENABLE_COMPLIANCE_ENABLED
+              value: {{ .Values.tenable.complianceEnabled | quote }}
+            {{- if .Values.tenable.complianceExportTimeout }}
+            - name: TENABLE_COMPLIANCE_EXPORT_TIMEOUT
+              value: {{ .Values.tenable.complianceExportTimeout | quote }}
+            {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}

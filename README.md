@@ -67,6 +67,8 @@ Exports vulnerability, asset, and compliance metrics so you can alert on them in
 | `tenable_exporter_cloud_context_total` | `entity`, `provider`, `dimension`, `status` | Count of assets or vulnerabilities with known vs unknown `subscription_id`, `region`, or `resource_group` labels. Use to track Tenable metadata completeness. |
 | `tenable_exporter_vulnerability_asset_lookup_misses_total` | — | Vulnerabilities whose asset UUID was missing from the asset export index |
 | `tenable_exporter_vulnerability_vpr_unknown_total` | — | Vulnerabilities with no VPR score from Tenable (expected for info findings) |
+| `tenable_exporter_compliance_findings_collected_total` | — | Compliance findings aggregated in the last scrape (0 if none or export failed) |
+| `tenable_exporter_compliance_collection_error` | — | `1` if the last compliance export raised an error, otherwise `0` |
 
 ### Label values by cloud provider
 
@@ -180,6 +182,8 @@ Full values reference: [`charts/tenable-exporter/values.yaml`](charts/tenable-ex
 | `SCRAPE_INTERVAL` | `300` | Seconds between Tenable API scrapes |
 | `TENABLE_FILTER_PROVIDERS` | _(all)_ | Comma-separated providers to include: `aws`, `azure`, `gcp` |
 | `TENABLE_FILTER_SUBSCRIPTIONS` | _(all)_ | Comma-separated subscription IDs to include (AWS account IDs, Azure subscription UUIDs, or GCP project IDs) |
+| `TENABLE_COMPLIANCE_ENABLED` | `true` | Set to `false` to skip compliance export collection |
+| `TENABLE_COMPLIANCE_EXPORT_TIMEOUT` | _(none)_ | Optional compliance export queue timeout in seconds |
 
 ## Docker image tags
 

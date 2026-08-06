@@ -19,6 +19,8 @@ Environment variables
   SCRAPE_INTERVAL               default 300 (seconds)
   TENABLE_FILTER_PROVIDERS      comma-separated: aws,azure,gcp
   TENABLE_FILTER_SUBSCRIPTIONS  comma-separated subscription/account/project IDs
+  TENABLE_COMPLIANCE_ENABLED    default true — set false to skip compliance export
+  TENABLE_COMPLIANCE_EXPORT_TIMEOUT  optional export queue timeout in seconds
 """
 
 from __future__ import annotations
@@ -72,6 +74,20 @@ def _csv_env(key: str, *, lower: bool = False) -> set[str]:
         return set()
     values = [v.strip() for v in raw.split(",") if v.strip()]
     return {v.lower() for v in values} if lower else set(values)
+
+
+def _env_bool(key: str, *, default: bool = True) -> bool:
+    raw = os.environ.get(key, "").strip().lower()
+    if not raw:
+        return default
+    return raw in {"1", "true", "yes", "on"}
+
+
+def _env_int(key: str) -> int | None:
+    raw = os.environ.get(key, "").strip()
+    if not raw:
+        return None
+    return int(raw)
 
 
 _AZURE_SUB_RE = re.compile(r"/subscriptions/([^/]+)", re.I)
@@ -151,19 +167,47 @@ def _normalize_severity(vuln: dict[str, Any]) -> str:
 
 
 def _compliance_result(finding: dict[str, Any]) -> str:
-    return _str(
+    raw = (
         finding.get("status")
         or finding.get("compliance_result")
         or finding.get("result")
-    ).upper()
+    )
+    if raw is None:
+        results = finding.get("compliance_results")
+        if isinstance(results, list) and results:
+            raw = results[0]
+        elif results is not None:
+            raw = results
+    return _str(raw).upper()
+
+
+def _compliance_asset_uid(finding: dict[str, Any]) -> str:
+    """Resolve the asset UUID from a compliance export finding.
+
+    Compliance chunks expose ``asset_uuid`` at the top level. This is the value
+    that matches the assets v2 export ``id``. The nested ``asset.id`` field is
+    not always the same identifier and must not be preferred over ``asset_uuid``.
+    """
+    uid = _str(finding.get("asset_uuid"))
+    if uid != UNKNOWN:
+        return uid
+    asset = finding.get("asset")
+    if isinstance(asset, dict):
+        for candidate in (asset.get("uuid"), asset.get("id")):
+            uid = _str(candidate)
+            if uid != UNKNOWN:
+                return uid
+    uid = _str(finding.get("asset_id"))
+    return "" if uid == UNKNOWN else uid
 
 
 def _compliance_audit_name(finding: dict[str, Any]) -> str:
     return _str(
-        finding.get("audit_name")
-        or finding.get("compliance_benchmark_name")
-        or finding.get("check_name")
+        finding.get("compliance_benchmark_name")
+        or finding.get("audit_name")
         or finding.get("audit_file")
+        or finding.get("audit_file_name")
+        or finding.get("check_name")
     ).lower()
 
 
@@ -423,10 +467,22 @@ class TenableCollector:
             return False
         return True
 
+    def _include_compliance(self, ctx: AssetCloud) -> bool:
+        """Apply cloud filters to compliance without dropping unknown-context assets."""
+        if self._filter_providers and ctx.provider != UNKNOWN:
+            if ctx.provider not in self._filter_providers:
+                return False
+        if self._filter_subscriptions and ctx.subscription_id != UNKNOWN:
+            if ctx.subscription_id not in self._filter_subscriptions:
+                return False
+        return True
+
     def _reset_diagnostics(self) -> None:
         self._cloud_context_by_entity: dict[tuple[str, str, str, str], int] = {}
         self._vuln_asset_lookup_misses = 0
         self._vuln_vpr_unknown          = 0
+        self._compliance_findings_collected = 0
+        self._compliance_collection_error   = 0
 
     def _record_cloud_context(self, entity: str, ctx: AssetCloud) -> None:
         for (dimension, status), n in _cloud_context_stats(ctx).items():
@@ -599,23 +655,40 @@ class TenableCollector:
     # ── compliance ────────────────────────────────────────────────────────────
 
     def _collect_compliance(self, asset_map: dict[str, AssetCloud]) -> None:
-        log.info("Collecting compliance findings …")
-
         # (provider, subscription_id, audit_name, result)
-        by_result:       dict[tuple, int] = {}
-        # (provider, subscription_id, region, result)
-        by_region:       dict[tuple, int] = {}
-        # (provider, subscription_id, resource_group, result)
+        by_result:         dict[tuple, int] = {}
+        by_region:         dict[tuple, int] = {}
         by_resource_group: dict[tuple, int] = {}
 
+        if not _env_bool("TENABLE_COMPLIANCE_ENABLED", default=True):
+            log.info("Compliance collection disabled (TENABLE_COMPLIANCE_ENABLED=false)")
+            self._compliance_findings_collected = 0
+            self._compliance_collection_error   = 0
+            self._compliance_by_result         = by_result
+            self._compliance_by_region         = by_region
+            self._compliance_by_resource_group = by_resource_group
+            return
+
+        log.info("Collecting compliance findings …")
+        export_kwargs: dict[str, Any] = {"when_done": True}
+        timeout = _env_int("TENABLE_COMPLIANCE_EXPORT_TIMEOUT")
+        if timeout is not None:
+            export_kwargs["timeout"] = timeout
+
         try:
-            for finding in self.tio.exports.compliance():
+            for finding in self.tio.exports.compliance(**export_kwargs):
                 result = _compliance_result(finding)
                 audit  = _compliance_audit_name(finding)
-                asset_uid = _asset_uid(finding)
+                asset_uid = _compliance_asset_uid(finding)
                 ctx = asset_map.get(asset_uid, AssetCloud())
+                if asset_uid and asset_uid not in asset_map:
+                    log.debug(
+                        "Compliance asset lookup miss for %s (cloud labels may show %r)",
+                        asset_uid,
+                        UNKNOWN,
+                    )
 
-                if not self._include(ctx):
+                if not self._include_compliance(ctx):
                     continue
 
                 k_res = (ctx.provider, ctx.subscription_id, audit, result)
@@ -629,10 +702,13 @@ class TenableCollector:
 
         except Exception as exc:
             log.warning("Compliance collection error: %s", exc)
+            self._compliance_collection_error = 1
 
-        self._compliance_by_result        = by_result
-        self._compliance_by_region        = by_region
+        self._compliance_findings_collected = sum(by_result.values())
+        self._compliance_by_result         = by_result
+        self._compliance_by_region         = by_region
         self._compliance_by_resource_group = by_resource_group
+        log.info("Compliance findings indexed: %d", self._compliance_findings_collected)
 
     # ── scans ─────────────────────────────────────────────────────────────────
 
@@ -926,6 +1002,21 @@ class TenableCollector:
             "info findings and plugins without threat intelligence)",
         )
         m.add_metric([], self._vuln_vpr_unknown)
+        yield m
+
+        m = GaugeMetricFamily(
+            "tenable_exporter_compliance_findings_collected_total",
+            "Compliance findings aggregated into tenable_compliance_findings_total "
+            "during the last scrape (0 if none or collection failed)",
+        )
+        m.add_metric([], self._compliance_findings_collected)
+        yield m
+
+        m = GaugeMetricFamily(
+            "tenable_exporter_compliance_collection_error",
+            "1 if the last compliance export failed, otherwise 0",
+        )
+        m.add_metric([], self._compliance_collection_error)
         yield m
 
 
