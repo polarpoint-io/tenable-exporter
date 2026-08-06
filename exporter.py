@@ -35,6 +35,7 @@ from typing import Any
 
 from prometheus_client import CollectorRegistry, start_http_server
 from prometheus_client.core import GaugeMetricFamily
+from tenable.errors import APIError
 from tenable.io import TenableIO
 
 logging.basicConfig(
@@ -45,15 +46,24 @@ log = logging.getLogger("tenable_exporter")
 
 UNKNOWN = "unknown"
 
+_COLLECT_ERRORS: tuple[type[BaseException], ...] = (
+    APIError,
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+)
+
 # Tenable severity_id / severity_default_id → label (0=info … 4=critical)
 _SEVERITY_LABELS = ("info", "low", "medium", "high", "critical")
 
 # VPR score → band label
 VPR_BANDS = [
-    (9.0, "critical"),   # 9.0 – 10.0
-    (7.0, "high"),       # 7.0 – 8.9
-    (4.0, "medium"),     # 4.0 – 6.9
-    (0.0, "low"),        # 0.0 – 3.9
+    (9.0, "critical"),   # 9.0 - 10.0
+    (7.0, "high"),       # 7.0 - 8.9
+    (4.0, "medium"),     # 4.0 - 6.9
+    (0.0, "low"),        # 0.0 - 3.9
 ]
 
 
@@ -90,8 +100,8 @@ def _env_int(key: str) -> int | None:
     return int(raw)
 
 
-_AZURE_SUB_RE = re.compile(r"/subscriptions/([^/]+)", re.I)
-_AZURE_RG_RE = re.compile(r"/resourceGroups/([^/]+)", re.I)
+_AZURE_SUB_RE = re.compile(r"/subscriptions/([^/]+)", re.IGNORECASE)
+_AZURE_RG_RE = re.compile(r"/resourceGroups/([^/]+)", re.IGNORECASE)
 
 
 # ── Cloud context ─────────────────────────────────────────────────────────────
@@ -111,7 +121,7 @@ class AssetCloud:
 
 def _str(v: Any) -> str:
     s = str(v).strip() if v else ""
-    return s if s else UNKNOWN
+    return s or UNKNOWN
 
 
 def _first_str(*values: Any) -> str:
@@ -275,7 +285,7 @@ def _parse_plugin_set_value(raw: Any) -> float:
         if len(raw) == 10:
             return float(raw)
     try:
-        dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        dt = datetime.fromisoformat(raw)
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=UTC)
         return dt.timestamp()
@@ -295,7 +305,7 @@ def _plugin_set_timestamp(tio: TenableIO) -> float:
                 if source == "properties"
                 else tio.server.status()
             )
-        except Exception as exc:
+        except _COLLECT_ERRORS as exc:
             log.warning("Plugin set timestamp from server %s unavailable: %s", source, exc)
             continue
         for key in keys:
@@ -463,19 +473,24 @@ class TenableCollector:
     def _include(self, ctx: AssetCloud) -> bool:
         if self._filter_providers and ctx.provider not in self._filter_providers:
             return False
-        if self._filter_subscriptions and ctx.subscription_id not in self._filter_subscriptions:
-            return False
-        return True
+        return not (
+            self._filter_subscriptions
+            and ctx.subscription_id not in self._filter_subscriptions
+        )
 
     def _include_compliance(self, ctx: AssetCloud) -> bool:
         """Apply cloud filters to compliance without dropping unknown-context assets."""
-        if self._filter_providers and ctx.provider != UNKNOWN:
-            if ctx.provider not in self._filter_providers:
-                return False
-        if self._filter_subscriptions and ctx.subscription_id != UNKNOWN:
-            if ctx.subscription_id not in self._filter_subscriptions:
-                return False
-        return True
+        if (
+            self._filter_providers
+            and ctx.provider != UNKNOWN
+            and ctx.provider not in self._filter_providers
+        ):
+            return False
+        return not (
+            self._filter_subscriptions
+            and ctx.subscription_id != UNKNOWN
+            and ctx.subscription_id not in self._filter_subscriptions
+        )
 
     def _reset_diagnostics(self) -> None:
         self._cloud_context_by_entity: dict[tuple[str, str, str, str], int] = {}
@@ -536,7 +551,7 @@ class TenableCollector:
 
                 self._record_cloud_context("asset", ctx)
 
-        except Exception as exc:
+        except _COLLECT_ERRORS as exc:
             log.warning("Asset collection error: %s", exc)
 
         self._asset_by_subscription   = by_subscription
@@ -630,7 +645,7 @@ class TenableCollector:
 
                 self._record_cloud_context("vulnerability", ctx)
 
-        except Exception as exc:
+        except _COLLECT_ERRORS as exc:
             log.warning("Vulnerability collection error: %s", exc)
 
         if asset_lookup_misses:
@@ -700,7 +715,7 @@ class TenableCollector:
                 k_grp = (ctx.provider, ctx.subscription_id, ctx.resource_group, result)
                 by_resource_group[k_grp] = by_resource_group.get(k_grp, 0) + 1
 
-        except Exception as exc:
+        except _COLLECT_ERRORS as exc:
             log.warning("Compliance collection error: %s", exc)
             self._compliance_collection_error = 1
 
@@ -721,14 +736,14 @@ class TenableCollector:
                 total += 1
                 status = _str(scan.get("status")).lower()
                 by_status[status] = by_status.get(status, 0) + 1
-        except Exception as exc:
+        except _COLLECT_ERRORS as exc:
             log.warning("Scan collection error: %s", exc)
         self._scan_total     = total
         self._scan_by_status = by_status
 
     # ── emit ──────────────────────────────────────────────────────────────────
 
-    def collect(self):  # noqa: C901
+    def collect(self):
         self._reset_diagnostics()
         asset_map = self._collect_assets()
         self._collect_vulns(asset_map)
@@ -969,10 +984,7 @@ class TenableCollector:
             "tenable_plugin_set_updated_timestamp",
             "Unix timestamp of the last Tenable plugin set update",
         )
-        try:
-            ts = _plugin_set_timestamp(self.tio)
-        except Exception:
-            ts = 0
+        ts = _plugin_set_timestamp(self.tio)
         m.add_metric([], ts)
         yield m
 
