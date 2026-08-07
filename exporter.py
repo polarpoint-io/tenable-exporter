@@ -346,7 +346,11 @@ def cloud_from_asset(asset: dict[str, Any]) -> AssetCloud:
 
     aws_account = _first_str(
         asset.get("aws_owner_id"),
+<<<<<<< Updated upstream
         asset.get("aws_account_id"),  # legacy / misnamed callers
+=======
+        asset.get("aws_account_id"),
+>>>>>>> Stashed changes
         aws_cloud.get("owner_id"),
     )
     az_sub = _first_str(
@@ -498,6 +502,17 @@ class TenableCollector:
         self._vuln_vpr_unknown          = 0
         self._compliance_findings_collected = 0
         self._compliance_collection_error   = 0
+<<<<<<< Updated upstream
+=======
+        # Exporter self-monitoring
+        self._phase_durations: dict[str, float] = {}
+        self._last_scrape_timestamp: float = 0.0
+        self._scrape_success: int = 1
+        self._asset_collection_error: int = 0
+        self._vuln_collection_error: int = 0
+        self._assets_indexed: int = 0
+        self._vulns_indexed: int = 0
+>>>>>>> Stashed changes
 
     def _record_cloud_context(self, entity: str, ctx: AssetCloud) -> None:
         for (dimension, status), n in _cloud_context_stats(ctx).items():
@@ -517,7 +532,6 @@ class TenableCollector:
         by_resource_group: dict[tuple, int] = {}
         by_resource_type:  dict[tuple, int] = {}
         by_source:         dict[str, int]   = {}
-        # (tag_category, tag_value)
         by_tag:            dict[tuple, int] = {}
 
         try:
@@ -544,7 +558,10 @@ class TenableCollector:
                     s = _str(src.get("name")).lower()
                     by_source[s] = by_source.get(s, 0) + 1
 
+<<<<<<< Updated upstream
                 # Tenable tags + cloud-native resource tags (assets v2 resource_tags)
+=======
+>>>>>>> Stashed changes
                 for cat, val in _iter_asset_tags(asset):
                     k = (cat, val)
                     by_tag[k] = by_tag.get(k, 0) + 1
@@ -553,14 +570,16 @@ class TenableCollector:
 
         except _COLLECT_ERRORS as exc:
             log.warning("Asset collection error: %s", exc)
+            self._asset_collection_error = 1
 
+        self._assets_indexed = len(asset_map)
         self._asset_by_subscription   = by_subscription
         self._asset_by_region         = by_region
         self._asset_by_resource_group = by_resource_group
         self._asset_by_resource_type  = by_resource_type
         self._asset_by_source         = by_source
         self._asset_by_tag            = by_tag
-        log.info("Assets indexed: %d", len(asset_map))
+        log.info("Assets indexed: %d", self._assets_indexed)
         return asset_map
 
     # ── vulnerabilities ───────────────────────────────────────────────────────
@@ -575,14 +594,15 @@ class TenableCollector:
         by_resource:            dict[tuple, int] = {}
         by_plugin_family:       dict[tuple, int] = {}
         by_subscription_plugin: dict[tuple, int] = {}
-        # state tracking  (provider, subscription_id, state, severity)
         by_state:               dict[tuple, int] = {}
-        # exploit risk  (cve_category, severity)
         by_exploit_risk:        dict[tuple, int] = {}
-        # VPR band  (provider, subscription_id, vpr_band)
         by_vpr_band:            dict[tuple, int] = {}
 
         asset_lookup_misses = 0
+<<<<<<< Updated upstream
+=======
+        vulns_indexed = 0
+>>>>>>> Stashed changes
 
         try:
             for vuln in self.tio.exports.vulns(
@@ -590,6 +610,10 @@ class TenableCollector:
                 state=["OPEN", "REOPENED", "FIXED"],
                 include_unlicensed=True,
             ):
+<<<<<<< Updated upstream
+=======
+                vulns_indexed += 1
+>>>>>>> Stashed changes
                 sev    = _normalize_severity(vuln)
                 state  = _str(vuln.get("state")).upper()
                 family = _str(vuln.get("plugin", {}).get("family")).lower()
@@ -597,7 +621,6 @@ class TenableCollector:
                 vpr_score = _vpr_score_from_vuln(vuln)
                 band = _vpr_band(vpr_score)
 
-                # CVE categories (list field on each finding)
                 cve_categories = vuln.get("plugin", {}).get("cve_category") or []
                 if not cve_categories:
                     cve_categories = [UNKNOWN]
@@ -647,6 +670,16 @@ class TenableCollector:
 
         except _COLLECT_ERRORS as exc:
             log.warning("Vulnerability collection error: %s", exc)
+            self._vuln_collection_error = 1
+
+        if asset_lookup_misses:
+            log.warning(
+                "Vulnerability asset lookup misses: %d (cloud labels may show %r)",
+                asset_lookup_misses,
+                UNKNOWN,
+            )
+        self._vuln_asset_lookup_misses = asset_lookup_misses
+        self._vulns_indexed = vulns_indexed
 
         if asset_lookup_misses:
             log.warning(
@@ -666,11 +699,15 @@ class TenableCollector:
         self._vuln_by_state               = by_state
         self._vuln_by_exploit_risk        = by_exploit_risk
         self._vuln_by_vpr_band            = by_vpr_band
+        log.info("Vulnerability findings indexed: %d", self._vulns_indexed)
 
     # ── compliance ────────────────────────────────────────────────────────────
 
     def _collect_compliance(self, asset_map: dict[str, AssetCloud]) -> None:
+<<<<<<< Updated upstream
         # (provider, subscription_id, audit_name, result)
+=======
+>>>>>>> Stashed changes
         by_result:         dict[tuple, int] = {}
         by_region:         dict[tuple, int] = {}
         by_resource_group: dict[tuple, int] = {}
@@ -683,6 +720,7 @@ class TenableCollector:
             self._compliance_by_region         = by_region
             self._compliance_by_resource_group = by_resource_group
             return
+<<<<<<< Updated upstream
 
         log.info("Collecting compliance findings …")
         export_kwargs: dict[str, Any] = {"when_done": True}
@@ -703,6 +741,22 @@ class TenableCollector:
                         UNKNOWN,
                     )
 
+=======
+
+        log.info("Collecting compliance findings …")
+        export_kwargs: dict[str, Any] = {"when_done": True}
+        timeout = _env_int("TENABLE_COMPLIANCE_EXPORT_TIMEOUT")
+        if timeout is not None:
+            export_kwargs["timeout"] = timeout
+
+        try:
+            for finding in self.tio.exports.compliance(**export_kwargs):
+                result = _compliance_result(finding)
+                audit  = _compliance_audit_name(finding)
+                asset_uid = _compliance_asset_uid(finding)
+                ctx = asset_map.get(asset_uid, AssetCloud())
+
+>>>>>>> Stashed changes
                 if not self._include_compliance(ctx):
                     continue
 
@@ -741,18 +795,39 @@ class TenableCollector:
         self._scan_total     = total
         self._scan_by_status = by_status
 
-    # ── emit ──────────────────────────────────────────────────────────────────
+    # ── collect (top-level) ───────────────────────────────────────────────────
 
     def collect(self):
         self._reset_diagnostics()
+<<<<<<< Updated upstream
+=======
+        t_total = time.monotonic()
+
+        t0 = time.monotonic()
+>>>>>>> Stashed changes
         asset_map = self._collect_assets()
+        self._phase_durations["assets"] = time.monotonic() - t0
+
+        t0 = time.monotonic()
         self._collect_vulns(asset_map)
+        self._phase_durations["vulns"] = time.monotonic() - t0
+
+        t0 = time.monotonic()
         self._collect_compliance(asset_map)
+        self._phase_durations["compliance"] = time.monotonic() - t0
+
+        t0 = time.monotonic()
         self._collect_scans()
+        self._phase_durations["scans"] = time.monotonic() - t0
 
-        # ── VULNERABILITY METRICS ─────────────────────────────────────────────
+        self._phase_durations["total"] = time.monotonic() - t_total
+        self._last_scrape_timestamp = time.time()
+        self._scrape_success = 1 if (
+            self._asset_collection_error == 0
+            and self._vuln_collection_error == 0
+            and self._compliance_collection_error == 0
+        ) else 0
 
-        _g = GaugeMetricFamily
         yield from self._emit_vuln_metrics()
         yield from self._emit_asset_metrics()
         yield from self._emit_compliance_metrics()
@@ -760,7 +835,13 @@ class TenableCollector:
         yield from self._emit_system_metrics()
         yield from self._emit_diagnostic_metrics()
 
-        log.info("Metric collection complete.")
+        log.info(
+            "Metric collection complete. duration=%.1fs assets=%d vulns=%d success=%d",
+            self._phase_durations["total"],
+            self._assets_indexed,
+            self._vulns_indexed,
+            self._scrape_success,
+        )
 
     # ── vulnerability metric emitters ─────────────────────────────────────────
 
@@ -828,7 +909,6 @@ class TenableCollector:
             m.add_metric([prov, sub, reg, fam, sev], n)
         yield m
 
-        # ── State tracking (OPEN / REOPENED / FIXED) ──────────────────────────
         m = GaugeMetricFamily(
             "tenable_vulnerabilities_by_state_total",
             "Vulnerabilities by lifecycle state (OPEN, REOPENED, FIXED), "
@@ -839,7 +919,6 @@ class TenableCollector:
             m.add_metric([prov, sub, state, sev], n)
         yield m
 
-        # ── Exploit risk / CVE category ───────────────────────────────────────
         m = GaugeMetricFamily(
             "tenable_vulnerabilities_by_exploit_risk_total",
             "Vulnerabilities by Tenable CVE category and severity. "
@@ -851,7 +930,6 @@ class TenableCollector:
             m.add_metric([cat, sev], n)
         yield m
 
-        # ── VPR band ──────────────────────────────────────────────────────────
         m = GaugeMetricFamily(
             "tenable_vulnerabilities_by_vpr_band_total",
             "Vulnerabilities by Tenable VPR (Vulnerability Priority Rating) band "
@@ -907,17 +985,13 @@ class TenableCollector:
         m = GaugeMetricFamily(
             "tenable_assets_by_source_total",
             "Total assets by Tenable discovery source "
-            "(AWS, AZURE, GCP, NESSUS, NESSUS_AGENT, WAS, PVS, SERVICENOW, …)",
+            "(AWS, AZURE, GCP, NESSUS, NESSUS_AGENT, WAS, PVS, SERVICENOW, ...)",
             labels=["source"],
         )
         for src, n in self._asset_by_source.items():
             m.add_metric([src], n)
         yield m
 
-        # ── Tag-based asset breakdown ─────────────────────────────────────────
-        # Covers Tenable tags AND cloud-native resource tags (via include_resource_tags).
-        # Use tag_category=asset_type / tag_value=database|container_registry|acr
-        # to target specific resource classes without needing a dedicated Tenable field.
         m = GaugeMetricFamily(
             "tenable_assets_by_tag_total",
             "Total assets by Tenable tag category and value. "
@@ -933,7 +1007,6 @@ class TenableCollector:
     # ── compliance metric emitters ────────────────────────────────────────────
 
     def _emit_compliance_metrics(self):
-        # (provider, subscription_id, audit_name, result)
         m = GaugeMetricFamily(
             "tenable_compliance_findings_total",
             "Compliance findings per audit, provider, and subscription. "
@@ -988,7 +1061,68 @@ class TenableCollector:
         m.add_metric([], ts)
         yield m
 
+<<<<<<< Updated upstream
     def _emit_diagnostic_metrics(self):
+=======
+    # ── diagnostic + self-monitoring emitters ─────────────────────────────────
+
+    def _emit_diagnostic_metrics(self):
+        # ── Exporter self-monitoring ──────────────────────────────────────────
+
+        m = GaugeMetricFamily(
+            "tenable_exporter_scrape_duration_seconds",
+            "Time in seconds spent in each Tenable API collection phase. "
+            "phase=total covers the full scrape cycle.",
+            labels=["phase"],
+        )
+        for phase, dur in self._phase_durations.items():
+            m.add_metric([phase], dur)
+        yield m
+
+        m = GaugeMetricFamily(
+            "tenable_exporter_scrape_success",
+            "1 if the last scrape completed with no errors across all phases, "
+            "0 if any collection phase raised an error.",
+        )
+        m.add_metric([], float(self._scrape_success))
+        yield m
+
+        m = GaugeMetricFamily(
+            "tenable_exporter_last_scrape_timestamp_seconds",
+            "Unix timestamp (seconds since epoch) of when the last scrape completed.",
+        )
+        m.add_metric([], self._last_scrape_timestamp)
+        yield m
+
+        m = GaugeMetricFamily(
+            "tenable_exporter_assets_indexed_total",
+            "Number of assets indexed from the Tenable asset export in the last scrape.",
+        )
+        m.add_metric([], float(self._assets_indexed))
+        yield m
+
+        m = GaugeMetricFamily(
+            "tenable_exporter_vulns_indexed_total",
+            "Number of vulnerability findings processed from the Tenable vuln export "
+            "in the last scrape (before provider/subscription filtering).",
+        )
+        m.add_metric([], float(self._vulns_indexed))
+        yield m
+
+        m = GaugeMetricFamily(
+            "tenable_exporter_collection_errors_total",
+            "1 if the named collection phase encountered an error during the last scrape, "
+            "0 otherwise. Alert on any phase being 1.",
+            labels=["phase"],
+        )
+        m.add_metric(["assets"],     float(self._asset_collection_error))
+        m.add_metric(["vulns"],      float(self._vuln_collection_error))
+        m.add_metric(["compliance"], float(self._compliance_collection_error))
+        yield m
+
+        # ── Cloud context coverage ────────────────────────────────────────────
+
+>>>>>>> Stashed changes
         m = GaugeMetricFamily(
             "tenable_exporter_cloud_context_total",
             "Assets or vulnerabilities with known vs unknown cloud context labels. "
