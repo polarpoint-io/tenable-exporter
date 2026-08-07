@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/polarpoint-io/tenable-exporter/compare/v1.1.4...v1.2.0) (2026-08-07)
+
+
+### Features
+
+* add exporter self-monitoring metrics (scrape duration, success, counts) ([17d2d40](https://github.com/polarpoint-io/tenable-exporter/commit/17d2d40cceca7b48d2494b8d651af166c105df6e))
+
 ## [1.1.4](https://github.com/polarpoint-io/tenable-exporter/compare/v1.1.3...v1.1.4) (2026-08-06)
 
 
